@@ -1,0 +1,122 @@
+---
+title: "Source Code-Datmin-Annisa Firnanda"
+author: "Annisa Firnanda_4SE3"
+date: "12/6/2022"
+output: html_document
+---
+
+# Load library
+```{r}
+library(readr) #Membaca data
+library(readxl) #Membaca file excel
+library(dplyr) #Manipulasi data
+library(factoextra)  #Mengaplikasikan algoritma clustering kmeans
+library(rlang)
+library(DT) #Menampilkan tabel agar mudah dilihat di browser
+library(clValid)
+library(REdaS)
+library(ggpubr)
+library(stats)
+library(NbClust) #Optimum number of Cluster
+```
+# Import Dataset
+```{r}
+dataset<- read_excel("Dataset_AnnisaF.xlsx")%>% as.data.frame()
+data<-dataset[,-c(1,2,3)]
+str(data)
+head(data)
+summary(data)
+```
+
+#Normalisasi data
+```{r}
+datanorm<-scale(data)
+datatable(datanorm, caption = "Data Hasil Standardisasi")
+```
+#cek multikol, KMO dan MSA
+```{r}
+bart_spher(datanorm) #h0: tidak ada multikolinearitas h1: ada multikolinearitas
+KMOS(datanorm)
+cor(data) 
+#ada korelasi yang tinggi antar variabel
+```
+#eigenvalue
+```{r}
+res.pca<-prcomp(datanorm)
+print(res.pca)
+eig.val<-get_eigenvalue(res.pca)
+eig.val
+fviz_eig(res.pca, addlabels=TRUE, ylim= c(0,100)) #visualisasi
+set.seed(123)
+PCA_scores<-res.pca$x[,1:3]
+PCA_scores
+```
+#menghitung klaster dengan elbow
+```{r}
+fviz_nbclust(PCA_scores, kmeans, method = "wss") +
+    geom_vline(xintercept = 2, linetype = 2)+
+  labs(subtitle = "Elbow method")
+```
+
+#Uji validitas cluster
+#K-Means
+```{r}
+library(stats)
+kmeans2<-kmeans(PCA_scores, 2)
+kmeans3<-kmeans(PCA_scores, 3)
+kmeans4<-kmeans(PCA_scores, 4)
+kmeans5<-kmeans(PCA_scores, 5)
+```
+#K-Medoid
+```{r}
+library(cluster) # analisis cluster
+kmed2<-pam(PCA_scores, 2)
+kmed3<-pam(PCA_scores, 3)
+kmed4<-pam(PCA_scores, 4)
+kmed5<-pam(PCA_scores, 5)
+```
+#Uji validitas
+```{r}
+#Connectivy
+intern <- clValid(PCA_scores, 2:5, clMethods = c("kmeans","pam"), validation = "internal")
+summary(intern)
+
+#DBI K-Means
+library(clusterCrit)
+PCA_scores_m<-as.matrix(PCA_scores)
+intCriteria(PCA_scores_m, kmeans2$cluster, "Davies_Bouldin")
+intCriteria(PCA_scores_m, kmeans3$cluster, "Davies_Bouldin")
+intCriteria(PCA_scores_m, kmeans4$cluster, "Davies_Bouldin")
+intCriteria(PCA_scores_m, kmeans5$cluster, "Davies_Bouldin")
+
+#DBI K-Medoids
+intCriteria(PCA_scores_m, kmed2$cluster, "Davies_Bouldin")
+intCriteria(PCA_scores_m, kmed3$cluster, "Davies_Bouldin")
+intCriteria(PCA_scores_m, kmed4$cluster, "Davies_Bouldin")
+intCriteria(PCA_scores_m, kmed5$cluster, "Davies_Bouldin")
+
+#Uji Stabilitas
+stab <- clValid(PCA_scores, 2:5, clMethods = c("kmeans","pam"), validation = "stability")
+summary(stab)
+```
+
+#K-Means clustering
+```{r}
+set.seed(123)
+kmeans_clustering <- eclust(PCA_scores,"kmeans" , k = 2,nstart = 25, graph = FALSE)
+kmeans_clustering
+cm <- table(dataset$`Kabupaten`, kmeans_clustering$cluster)
+head(cm)
+```
+
+#grafik 
+```{r}
+set.seed(123)
+Clust_kmeans = kmeans(PCA_scores, 2)
+fviz_cluster(Clust_kmeans,data=PCA_scores)
+```
+
+#Simpan hasil clustering
+```{r}
+write.csv(cm, "Hasil clustering.csv")
+```
